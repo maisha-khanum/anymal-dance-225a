@@ -31,6 +31,7 @@ When you run hw0 and modify the values for the joints, it will modify the positi
 git status
 git add .
 git commit -m "msg"
+git pull
 git push
 ```
 
