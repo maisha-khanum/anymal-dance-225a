@@ -1,5 +1,5 @@
-# cs225a
-This repository will contain the homeworks and demos for the class cs225a.
+# anymal-dance
+This is a group project for cs225a. Mapping human motion to ANYmal.
 
 ## Dependencies
 The project depends on the OpenSai libraries. You have received instructions to install OpenSai in class.
