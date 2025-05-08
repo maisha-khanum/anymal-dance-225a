@@ -12,6 +12,7 @@
 #include <iostream>
 #include <string>
 #include <random>
+#include <Eigen/Geometry>
 
 using namespace std;
 using namespace Eigen;
@@ -64,6 +65,7 @@ int main() {
     body_task->setPosControlGains(400, 40, 0);
     body_task->setOriControlGains(400, 40, 0);
     Vector3d body_pos;
+    Eigen::Quaterniond body_ori_start; 
 
 	// create map for feet task 
     std::map<std::string, std::shared_ptr<SaiPrimitives::MotionForceTask>> primary_tasks;
@@ -131,36 +133,76 @@ int main() {
 					primary_tasks[name]->reInitializeTask();
 				}
                 body_pos = robot->position("body", Vector3d(0, 0, 0));
+                body_ori_start = Eigen::Quaterniond(robot->rotation("body"));  // ← record orientation here
 				joint_task->reInitializeTask();
 
 				state = FEET_FIXED_MOTION;
 			}
 		} else if (state == FEET_FIXED_MOTION) {
-            // get underactuation matrix
-            MatrixXd Jr = MatrixXd::Zero(3 * 4, robot->dof());
-            for (int i = 0; i < 4; ++i) {
-                Jr.block(3 * i, 0, 3, robot->dof()) = robot->Jv(primary_control_links[i], primary_control_points[i]);
+            // --- 1) build the 4‐foot J_r and underactuation projector U_Nr_bar
+            const int nFeet = primary_control_links.size();
+            MatrixXd Jr(3 * nFeet, robot->dof());
+            for (int i = 0; i < nFeet; ++i) {
+                Jr.block(3*i, 0, 3, robot->dof())
+                    = robot->Jv(primary_control_links[i], primary_control_points[i]);
             }
+            // Nullspace of the feet
             MatrixXd Nr = robot->nullspaceMatrix(Jr);
             MatrixXd UNr = U * Nr;
-            MatrixXd UNr_pre_inverse = UNr * robot->MInv() * UNr.transpose();
-            MatrixXd UNr_bar = robot->MInv() * UNr.transpose() * \
-                                    (UNr_pre_inverse).completeOrthogonalDecomposition().pseudoInverse();
+            MatrixXd UNr_pre = UNr * robot->MInv() * UNr.transpose();
+            MatrixXd UNr_bar = robot->MInv() * UNr.transpose()
+                            * UNr_pre.completeOrthogonalDecomposition().pseudoInverse();
 
-            // update body task
+            // --- 2) update task models
+            // 2a: body task in full joint space
             N_prec.setIdentity();
             body_task->updateTaskModel(N_prec);
             N_prec = body_task->getTaskAndPreviousNullspace();
-                
-            // redundancy completion 
+            // 2b: joint task in the nullspace of the body task
             joint_task->updateTaskModel(N_prec);
 
-            // -------- set task goals and compute control torques
-            command_torques.setZero();
 
-            body_task->setGoalPosition(body_pos + Vector3d(0, 0, 0.1 * sin(2 * M_PI * time)));
-            command_torques += body_task->computeTorques() + joint_task->computeTorques() + robot->coriolisForce() + robot->jointGravityVector();  // compute joint task torques if DOF isn't filled
-            command_torques = U.transpose() * UNr_bar.transpose() * command_torques;  // project underactuation 
+
+            
+            // ANYMAL-DANCE VARIABLES THAT YOU CAN CHANGE 
+
+            // --- 3) set dynamic goals
+            double amp   = 5.0 * M_PI/180.0;     // 5° amplitude
+            double omega = 0.1 * M_PI * time;     // 1 Hz
+
+            // build AngleAxis
+            Eigen::AngleAxisd roll_aa(  amp * std::sin(omega), Vector3d::UnitX());
+            Eigen::AngleAxisd pitch_aa( amp * std::sin(omega), Vector3d::UnitY());
+            Eigen::AngleAxisd yaw_aa(   amp * std::sin(omega), Vector3d::UnitZ());
+
+            // explicit quaternion constructors
+            Eigen::Quaterniond droll  (roll_aa);
+            Eigen::Quaterniond dpitch (pitch_aa);
+            Eigen::Quaterniond dyaw   (yaw_aa);
+            Eigen::Quaterniond q_offset = dyaw * dpitch * droll;
+
+            // position
+            //Vector3d pos_goal = body_pos + Vector3d(0, 0, 0.1);
+            Vector3d pos_goal = body_pos + Vector3d(0, 0, 0.1 * std::sin(omega));
+
+
+            // END ANYMAL-DANCE VARIABLES THAT YOU CAN CHANGE 
+
+
+            body_task->setGoalPosition(pos_goal);
+
+            // orientation (convert to Matrix3d)
+            Eigen::Quaterniond q_goal = q_offset * body_ori_start;
+            body_task->setGoalOrientation(q_goal.toRotationMatrix());
+
+            // --- 4) compute torques
+            command_torques.setZero();
+            command_torques += body_task->computeTorques()
+                            + joint_task->computeTorques()
+                            + robot->coriolisForce()
+                            + robot->jointGravityVector();
+            // project through underactuation & actuated joints
+            command_torques = U.transpose() * UNr_bar.transpose() * command_torques;
             
         } else if (state == FLIGHT) {
             // update primary task model
