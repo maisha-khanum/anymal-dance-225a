@@ -105,7 +105,7 @@
         </inertial>
         <visual>
             <geometry>
-                <mesh filename="../../../urdf_models/spot/meshes/body.obj" />
+                <mesh filename="../../../urdf_models/anymal/meshes/tilt.obj" />
             </geometry>
         </visual>
 <!--         <visual>
@@ -352,7 +352,7 @@
         </inertial>
         <visual>
             <geometry>
-                <mesh filename="../../../urdf_models/spot/meshes/rear_left_upper_leg.obj" />
+                <mesh filename="../../../urdf_models/anymal/meshes/tilt.obj" />
             </geometry>
         </visual>
     </link>

@@ -105,7 +105,7 @@
         </inertial>
         <visual>
             <geometry>
-                <mesh filename="../../../model/spot/meshes/body.obj" />
+                <mesh filename="../../../model/anymal/meshes/tilt.obj" />
             </geometry>
         </visual>
 <!--         <visual>

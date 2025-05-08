@@ -162,7 +162,7 @@
         </inertial>
         <visual>
             <geometry>
-                <mesh filename="../../../urdf_models/spot/meshes/front_left_hip.obj" />
+                <mesh filename="../../../urdf_models/anymal/meshes/base.obj" />
             </geometry>
         </visual>
 <!--         <visual>
