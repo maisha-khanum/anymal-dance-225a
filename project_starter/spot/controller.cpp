@@ -163,17 +163,22 @@ int main() {
 
 
 
-            
+
             // ANYMAL-DANCE VARIABLES THAT YOU CAN CHANGE 
 
             // --- 3) set dynamic goals
-            double amp   = 5.0 * M_PI/180.0;     // 5° amplitude
-            double omega = 0.1 * M_PI * time;     // 1 Hz
+            double amp_roll   = 10.0 * M_PI/180.0;     // 5° amplitude
+            double amp_pitch   = 10.0 * M_PI/180.0;     // 5° amplitude
+            double amp_yaw  = 10.0 * M_PI/180.0;     // 5° amplitude
+
+            double omega_roll = 0.1 * M_PI * time;     // 1 Hz
+            double omega_pitch = 0.1 * M_PI * time;     // 1 Hz
+            double omega_yaw = 0.1 * M_PI * time;     // 1 Hz
 
             // build AngleAxis
-            Eigen::AngleAxisd roll_aa(  amp * std::sin(omega), Vector3d::UnitX());
-            Eigen::AngleAxisd pitch_aa( amp * std::sin(omega), Vector3d::UnitY());
-            Eigen::AngleAxisd yaw_aa(   amp * std::sin(omega), Vector3d::UnitZ());
+            Eigen::AngleAxisd roll_aa(  amp_roll * std::sin(omega_roll), Vector3d::UnitX());
+            Eigen::AngleAxisd pitch_aa( amp_pitch * std::sin(omega_pitch), Vector3d::UnitY());
+            Eigen::AngleAxisd yaw_aa(   amp_yaw * std::sin(omega_yaw), Vector3d::UnitZ());
 
             // explicit quaternion constructors
             Eigen::Quaterniond droll  (roll_aa);
