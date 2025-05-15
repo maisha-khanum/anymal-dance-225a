@@ -54,7 +54,7 @@ RIGID_BODY_POS_KEY = "sai2::optitrack::rigid_body_pos::"
 RIGID_BODY_ORI_KEY = "sai2::optitrack::rigid_body_ori::"
 def receive_rigid_body_frame( new_id, position, rotation ):
     # pass
-    redis_client.set(RIGID_BODY_POS_KEY + str(new_id), '[' + str(position)[1:-1] + ']')
+    redis_client.set(RIGID_BODY_POS_KEY + str(new_id), '[' + str(position)5[1:-1] + ']')
     redis_client.set(RIGID_BODY_ORI_KEY + str(new_id), '[' + str(rotation)[1:-1] + ']')
 
 def receive_skeleton_frame(new_id, skeleton):
