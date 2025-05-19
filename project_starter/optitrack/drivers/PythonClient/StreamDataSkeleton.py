@@ -26,6 +26,13 @@ import MoCapData
 import redis 
 import signal
 import sys
+import csv
+
+
+
+csv_file = open('stomp_R.csv', mode='w', newline='')
+csv_writer = csv.writer(csv_file)
+csv_writer.writerow(['timestamp', 'rigid_body_id', 'pos_x', 'pos_y', 'pos_z', 'rot_x', 'rot_y', 'rot_z', 'rot_w'])
 
 is_looping = True
 def signal_handler(sig, frame):
@@ -48,18 +55,31 @@ def receive_new_frame(data_dict):
             if key in data_dict :
                 out_string += str(data_dict[key]) + " "
             out_string+="/"
-        print(out_string)
+        # print(out_string)
 
 RIGID_BODY_POS_KEY = "sai2::optitrack::rigid_body_pos::"
 RIGID_BODY_ORI_KEY = "sai2::optitrack::rigid_body_ori::"
+
 def receive_rigid_body_frame( new_id, position, rotation ):
-    # pass
-    redis_client.set(RIGID_BODY_POS_KEY + str(new_id), '[' + str(position)5[1:-1] + ']')
+    redis_client.set(RIGID_BODY_POS_KEY + str(new_id), '[' + str(position)[1:-1] + ']')
     redis_client.set(RIGID_BODY_ORI_KEY + str(new_id), '[' + str(rotation)[1:-1] + ']')
+    
 
 def receive_skeleton_frame(new_id, skeleton):
-    # Iterate over each rigid body in the skeleton's rigid body list
+    timestamp = time.time()
     for i, rigid_body in enumerate(skeleton.rigid_body_list):
+        pos = rigid_body.pos  # [x, y, z]
+        rot = rigid_body.rot  # [x, y, z, w]
+        # Save to Redis (existing behavior)
+        position_key = f"{new_id}::{i + 1}::pos"
+        orientation_key = f"{new_id}::{i + 1}::ori"
+        redis_client.set(position_key, '[' + ', '.join(map(str, pos)) + ']')
+        redis_client.set(orientation_key, '[' + ', '.join(map(str, rot)) + ']')
+        # Also save to CSV
+        row = [timestamp, i + 1] + list(pos) + list(rot)
+        csv_writer.writerow(row)
+        csv_file.flush()  # Ensure immediate disk write
+
         # Construct Redis keys for position and orientation
         position_key = f"{new_id}::{i + 1}::pos"
         orientation_key = f"{new_id}::{i + 1}::ori"
@@ -71,6 +91,8 @@ def receive_skeleton_frame(new_id, skeleton):
         # Set the position and orientation in Redis
         redis_client.set(position_key, position_str)
         redis_client.set(orientation_key, orientation_str)
+
+
 
 
 def add_lists(totals, totals_tmp):
@@ -185,13 +207,13 @@ def my_parse_args(arg_list, args_dict):
     return args_dict
 
 
+
 if __name__ == "__main__":
-    
     signal.signal(signal.SIGINT, signal_handler)
 
     optionsDict = {}
-    optionsDict["clientAddress"] = "172.24.68.64"
-    optionsDict["serverAddress"] = "172.24.68.48"
+    optionsDict["clientAddress"] = "172.24.69.101"
+    optionsDict["serverAddress"] = "172.24.68.67"
     optionsDict["use_multicast"] = False
 
     # This will create a new NatNet client
@@ -202,10 +224,12 @@ if __name__ == "__main__":
     streaming_client.set_server_address(optionsDict["serverAddress"])
     streaming_client.set_use_multicast(optionsDict["use_multicast"])
 
+
+
     # Configure the streaming client to call our rigid body handler on the emulator to send data out.
-    streaming_client.new_frame_listener = receive_new_frame
-    #streaming_client.rigid_body_listener = receive_rigid_body_frame
+    streaming_client.new_frame_listener = receive_new_frame 
     streaming_client.skeleton_listener = receive_skeleton_frame
+    # streaming_client.rigid_body_listener = receive_rigid_body_frame
     
     # Set print level
     streaming_client.set_print_level(0)
@@ -240,97 +264,6 @@ if __name__ == "__main__":
     while is_looping:
         time.sleep(1)
 
-    # while is_looping:
-    #     inchars = input('Enter command or (\'h\' for list of commands)\n')
-    #     if len(inchars)>0:
-    #         c1 = inchars[0].lower()
-    #         if c1 == 'h' :
-    #             print_commands(streaming_client.can_change_bitstream_version())
-    #         elif c1 == 'c' :
-    #             print_configuration(streaming_client)
-    #         elif c1 == 's':
-    #             request_data_descriptions(streaming_client)
-    #             time.sleep(1)
-    #         elif (c1 == '3') or (c1 == '4'):
-    #             if streaming_client.can_change_bitstream_version():
-    #                 tmp_major = 4
-    #                 tmp_minor = 1
-    #                 if(c1 == '3'):
-    #                     tmp_major = 3
-    #                     tmp_minor = 1
-    #                 return_code = streaming_client.set_nat_net_version(tmp_major,tmp_minor)
-    #                 time.sleep(1)
-    #                 if return_code == -1:
-    #                     print("Could not change bitstream version to %d.%d"%(tmp_major,tmp_minor))
-    #                 else:
-    #                     print("Bitstream version at %d.%d"%(tmp_major,tmp_minor))
-    #             else:
-    #                 print("Can only change bitstream in Unicast Mode")
-
-    #         elif c1 == 'p':
-    #             sz_command="TimelineStop"
-    #             return_code = streaming_client.send_command(sz_command)
-    #             time.sleep(1)
-    #             print("Command: %s - return_code: %d"% (sz_command, return_code) )
-    #         elif c1 == 'r':
-    #             sz_command="TimelinePlay"
-    #             return_code = streaming_client.send_command(sz_command)
-    #             print("Command: %s - return_code: %d"% (sz_command, return_code) )
-    #         elif c1 == 'o':
-    #             tmpCommands=["TimelinePlay",
-    #                         "TimelineStop",
-    #                         "SetPlaybackStartFrame,0",
-    #                         "SetPlaybackStopFrame,1000000",
-    #                         "SetPlaybackLooping,0",
-    #                         "SetPlaybackCurrentFrame,0",
-    #                         "TimelineStop"]
-    #             for sz_command in tmpCommands:
-    #                 return_code = streaming_client.send_command(sz_command)
-    #                 print("Command: %s - return_code: %d"% (sz_command, return_code) )
-    #             time.sleep(1)
-    #         elif c1 == 'w':
-    #             tmp_commands=["TimelinePlay",
-    #                         "TimelineStop",
-    #                         "SetPlaybackStartFrame,1",
-    #                         "SetPlaybackStopFrame,1500",
-    #                         "SetPlaybackLooping,0",
-    #                         "SetPlaybackCurrentFrame,100",
-    #                         "TimelineStop"]
-    #             for sz_command in tmp_commands:
-    #                 return_code = streaming_client.send_command(sz_command)
-    #                 print("Command: %s - return_code: %d"% (sz_command, return_code) )
-    #             time.sleep(1)
-    #         elif c1 == 't':
-    #             test_classes()
-
-    #         elif c1 == 'j':
-    #             streaming_client.set_print_level(0)
-    #             print("Showing only received frame numbers and supressing data descriptions")
-    #         elif c1 == 'k':
-    #             streaming_client.set_print_level(1)
-    #             print("Showing every received frame")
-
-    #         elif c1 == 'l':
-    #             print_level = streaming_client.set_print_level(20)
-    #             print_level_mod = print_level % 100
-    #             if(print_level == 0):
-    #                 print("Showing only received frame numbers and supressing data descriptions")
-    #             elif (print_level == 1):
-    #                 print("Showing every frame")
-    #             elif (print_level_mod == 1):
-    #                 print("Showing every %dst frame"%print_level)
-    #             elif (print_level_mod == 2):
-    #                 print("Showing every %dnd frame"%print_level)
-    #             elif (print_level == 3):
-    #                 print("Showing every %drd frame"%print_level)
-    #             else:
-    #                 print("Showing every %dth frame"%print_level)
-
-    #         elif c1 == 'q':
-    #             is_looping = False
-    #             streaming_client.shutdown()
-    #             break
-    #         else:
-    #             print("Error: Command %s not recognized"%c1)
-    #         print("Ready...\n")
-    # print("exiting")
+    csv_file.close()
+    streaming_client.shutdown()
+    print("Exited cleanly.")
