@@ -54,12 +54,12 @@ def get_marker_pos(marker_id, timestamp):
 # ---- Run state machine ----
 
 is_looping = True
-move_idx = 0
+move_idx = 0 # TODO want to start from a specific move? change this to the index of that move
 curr_home = None
 
 print("Starting state machine from CSV...\n")
 
-for ts in timestamps[380:]: #TODO: truncating the start which had no movement
+for ts in timestamps[380:]: #TODO: truncating the start for full_dance.csv which had no movement, feel free to change back to 0
     time.sleep(0.2)  # simulate faster playback
 
     if curr_home is None:
@@ -139,4 +139,4 @@ for ts in timestamps[380:]: #TODO: truncating the start which had no movement
     else:
         print(f"[ ] No significant movement for {move}. Frame {ts:.4f} (delta: {delta:.4f})")
 
-# TODO: need to handle the transformation of the x,y coordinates relative to home after the rotation
+# TODO: need to handle the transformation of the x,y coordinates relative to home after the rotation - suggestions?
