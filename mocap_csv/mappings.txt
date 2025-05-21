@@ -11,3 +11,5 @@ wrist_l = 9
 wrist_r = 28
 ankle_l = 46
 ankle_r = 50
+toe_l = 47
+toe_r = 51
