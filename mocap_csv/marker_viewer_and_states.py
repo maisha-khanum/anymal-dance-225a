@@ -19,15 +19,15 @@ data = pd.read_csv(csv_name)
 timestamps = sorted(data['timestamp'].unique())
 
 # === SETUP FOR MOTION DETECTION ===
-move_sequence = ['left', 'backward', 'hop', 'stomp_left', 'stomp_right', 'chacha', 'rotate']
+move_sequence = ['left', 'backward', 'hop', 'stomp_right', 'stomp_left', 'chacha', 'rotate']
 thresholds = {
-    'left': 0.05,
-    'backward': 0.05,
-    'hop': 0.03,
-    'stomp_left': 0.03,
-    'stomp_right': 0.03,
-    'chacha': 0.05,
-    'rotate': 0.05
+    'left': 0.1,
+    'backward': 0.3,
+    'hop': 1.0,
+    'stomp_left': 0.5,
+    'stomp_right': 0.5,
+    'chacha': 0.82,
+    'rotate': 0.15
 }
 marker_ids = {
     'toe_l': 47,
@@ -87,7 +87,7 @@ plt.show()
 
 elev, azim = ax.elev, ax.azim
 
-for i, ts in enumerate(timestamps):  # Adjust slice for skipping idle frames
+for i, ts in enumerate(timestamps[380:]):  # Adjust slice for skipping idle frames
     while paused:
         plt.pause(0.5)
 
@@ -101,6 +101,7 @@ for i, ts in enumerate(timestamps):  # Adjust slice for skipping idle frames
 
     if curr_home is None and marker_ids['toe_l'] in marker_dict:
         curr_home = marker_dict[marker_ids['toe_l']]
+        curr_home_rot = rots[47].copy()
         print(f"Set home position: {curr_home}")
 
     # Motion Detection Logic
@@ -115,44 +116,50 @@ for i, ts in enumerate(timestamps):  # Adjust slice for skipping idle frames
         wrist_l = marker_dict.get(marker_ids['wrist_l'])
         wrist_r = marker_dict.get(marker_ids['wrist_r'])
         chest = marker_dict.get(marker_ids['chest'])
+    
 
         detected = False
         delta = 0
 
         if move == 'left' and toe_l is not None:
             delta = toe_l[1] - curr_home[1]
-            if delta > thresholds['left']:
+            if abs(delta) > thresholds['left']:
                 detected = True
 
-        elif move == 'backward' and toe_l is not None:
-            delta = toe_l[0] - curr_home[0]
-            if -delta > thresholds['backward']:
+        elif move == 'backward' and toe_r is not None:
+            delta = toe_r[0] - curr_home[0]
+            if abs(delta) > thresholds['backward']:
                 detected = True
 
         elif move == 'hop' and chest is not None:
             delta = chest[2] - curr_home[2]
-            if -delta > thresholds['hop']:
+            if abs(delta) < thresholds['hop']:
+                detected = True
+                hopInProgress = False
+                hopComplete = False
+
+        elif move == 'stomp_right' and knee_r is not None:
+            delta = knee_r[2] - curr_home[2]
+            if abs(delta) > 0.65:
+                hopInProgress = True
+            if hopInProgress and abs(delta) < 0.43:
+                hopComplete = True
+            if hopComplete and abs(delta) > thresholds['stomp_right']:
                 detected = True
 
         elif move == 'stomp_left' and knee_l is not None:
             delta = knee_l[2] - curr_home[2]
-            if delta > thresholds['stomp_left']:
-                detected = True
-
-        elif move == 'stomp_right' and knee_r is not None:
-            delta = knee_r[2] - curr_home[2]
-            if delta > thresholds['stomp_right']:
-                detected = True
+            if abs(delta) > thresholds['stomp_left']:
+                    detected = True
 
         elif move == 'chacha' and wrist_l is not None and wrist_r is not None:
             delta_l = wrist_l[2] - curr_home[2]
-            delta_r = wrist_r[2] - curr_home[2]
-            if delta_l > thresholds['chacha'] and delta_r < thresholds['chacha']:
+            if abs(delta_l) > thresholds['chacha']:
                 detected = True
 
         elif move == 'rotate' and toe_l is not None:
-            delta = toe_l[0] - curr_home[0]
-            if delta > thresholds['rotate']:
+            delta = rots[47][2] - curr_home_rot[2]
+            if abs(delta) > thresholds['rotate']:
                 detected = True
 
         if detected:
@@ -185,4 +192,4 @@ for i, ts in enumerate(timestamps):  # Adjust slice for skipping idle frames
             orientation_quivers.append(q)
 
     plt.draw()
-    plt.pause(0.5)
+    plt.pause(0.2)
