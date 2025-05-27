@@ -26,8 +26,8 @@ thresholds = {
     'hop': 1.0,
     'stomp_left': 0.5,
     'stomp_right': 0.5,
-    'chacha': 0.82,
-    'rotate': 0.15  # add more values to threshold
+    'chacha': 0.9,
+    'rotate': 0.25  # add more values to threshold
 }
 marker_ids = {
     'toe_l': 47,
@@ -41,7 +41,6 @@ marker_ids = {
 move_idx = 0
 curr_home = None
 rotation_counter = 1
-new_sequence = True
 prior_move = None
 
 # === VISUALIZATION SETUP ===
@@ -102,13 +101,13 @@ for i, ts in enumerate(timestamps[380:]):  # Adjust slice for skipping idle fram
 
     marker_dict = {int(rid): p for rid, p in zip(ids, pos)}
 
-    if marker_ids['toe_l'] in marker_dict and new_sequence:
+    if marker_ids['toe_l'] in marker_dict and curr_home is None:
         curr_home = marker_dict[marker_ids['toe_l']]
         curr_home_rot = rots[47].copy()
-        new_sequence = False
         print(f"Set home position: {curr_home}")
 
     # Motion Detection Logic
+    detected = False
     if curr_home is not None and move_idx < len(move_sequence):
         move = move_sequence[move_idx]
         print(f"\nLooking for move: {move}")
@@ -122,20 +121,22 @@ for i, ts in enumerate(timestamps[380:]):  # Adjust slice for skipping idle fram
         chest = marker_dict.get(marker_ids['chest'])
     
 
-        detected = False
+        # detected = False
         delta = 0
 
         if rotation_counter % 2 == 1:
-
             if move == 'left' and toe_l is not None:
                 delta = toe_l[1] - curr_home[1]
-                delta_rot = rots[47][2] - curr_home_rot[2]
-                if prior_move == 'rotate' and abs(delta_rot) > 0.6:
-                    if abs(delta) > thresholds['left']:
-                        detected = True
-                else:
-                    if abs(delta) > thresholds['left']:
-                        detected = True
+                if abs(delta) > thresholds['left']:
+                    detected = True
+
+                # delta_rot = rots[47][2] - curr_home_rot[2]
+                # if prior_move == 'rotate' and abs(delta_rot) > 0.6:
+                #     if abs(delta) > thresholds['left']:
+                #         detected = True
+                # else:
+                #     if abs(delta) > thresholds['left']:
+                #         detected = True
 
             elif move == 'backward' and toe_r is not None:
                 delta = toe_r[0] - curr_home[0]
@@ -164,24 +165,29 @@ for i, ts in enumerate(timestamps[380:]):  # Adjust slice for skipping idle fram
                         detected = True
 
             elif move == 'chacha' and wrist_l is not None and wrist_r is not None:
-                delta_l = wrist_l[2] - curr_home[2]
-                if abs(delta_l) > thresholds['chacha']:
+                delta = wrist_l[2] - curr_home[2]
+                if abs(delta) > thresholds['chacha']:
                     detected = True
 
             elif move == 'rotate' and toe_l is not None:
                 delta = rots[47][2] - curr_home_rot[2]
                 if abs(delta) > thresholds['rotate']:
                     detected = True
+                    new_sequence = True
         else:
             if move == 'left' and toe_l is not None:
                 delta = toe_l[0] - curr_home[0]
-                delta_rot = rots[47][2] - curr_home_rot[2]
-                if prior_move == 'rotate' and abs(delta_rot) > 0.6:
-                    if abs(delta) > thresholds['left']:
-                        detected = True
-                else:
-                    if abs(delta) > thresholds['left']:
-                        detected = True
+                # delta_rot = rots[47][2] - curr_home_rot[2]
+                if abs(delta) > thresholds['left']:
+                    detected = True
+
+
+                # if prior_move == 'rotate' and abs(delta_rot) > 0.6:
+                #     if abs(delta) > thresholds['left']:
+                #         detected = True
+                # else:
+                #     if abs(delta) > thresholds['left']:
+                #         detected = True
 
             elif move == 'backward' and toe_r is not None:
                 delta = toe_r[1] - curr_home[1]
@@ -210,24 +216,45 @@ for i, ts in enumerate(timestamps[380:]):  # Adjust slice for skipping idle fram
                         detected = True
 
             elif move == 'chacha' and wrist_l is not None and wrist_r is not None:
-                delta_l = wrist_l[2] - curr_home[2]
-                if abs(delta_l) > thresholds['chacha']:
+                delta = wrist_l[2] - curr_home[2]
+                if abs(delta) > thresholds['chacha']:
                     detected = True
 
             elif move == 'rotate' and toe_l is not None:
                 delta = rots[47][2] - curr_home_rot[2]
                 if abs(delta) > thresholds['rotate']:
                     detected = True
+                    new_sequence = True
 
+        # if move == 'rotate' and new_sequence:
+        #     delta = rots[47][2] - curr_home_rot[2]
+        #     if delta > 0.6:
+        #         rotation_counter += 1
+        #         curr_home = marker_dict[marker_ids['toe_l']]
+        #         curr_home_rot = rots[47].copy()
+        #         print(f"Rotation detected: {rotation_counter} (Δ={delta:.4f})")
+        #         new_sequence = False
 
         if detected:
             print(f"✔ Detected move: {move.upper()} (Δ={delta:.4f})")
-            if move == 'rotate':
-                move_idx = 0
-                new_sequence = True
-                prior_move = 'rotate'
+            if move == 'rotate' and new_sequence:
+                delta = rots[47][2] - curr_home_rot[2]
+                if abs(delta) > 0.6:
+                    rotation_counter += 1
+                    curr_home = marker_dict[marker_ids['toe_l']]
+                    curr_home_rot = rots[47].copy()
+                    print(f"Rotation detected: {rotation_counter} (Δ={delta:.4f})")
+                    new_sequence = False
+
+                    move_idx = 0
+                    detected = False
+            # elif move == 'rotate' and not new_sequence:
+            #     move_idx = 0
+            #     prior_move = 'rotate'
+            #     detected = False
             else:
                 move_idx += 1
+                detected = False
             # if move_idx >= len(move_sequence):
             #     print("✅ All moves detected. Done.")
         else:
@@ -255,4 +282,4 @@ for i, ts in enumerate(timestamps[380:]):  # Adjust slice for skipping idle fram
             orientation_quivers.append(q)
 
     plt.draw()
-    plt.pause(0.2)
+    plt.pause(0.1)

@@ -110,6 +110,8 @@ while True:
                     if rid == marker_home_pos:
                         # home_pos = pos[j].copy()
                         home_pos = [0.66048914, -0.38754565, 0.03881146]
+                        home_pos = [-0.04324431, 0.02446393, -0.76938421, -0.63685125]
+
                         print(f"Stored initial position of marker {marker_home_pos}: {home_pos}")
                         break  # stop searching after found
             # Stored initial position of marker 47: [ 0.66048914 -0.38754565  0.03881146] for the intial left toe location
@@ -128,12 +130,11 @@ while True:
             # Compare desired marker position value to home position
             if home_pos is not None:
                 for j, rid in enumerate(ids):
-                    if rid == target_marker_id: # comment out if you want to look at ALL marker values 
-                        current_pos = pos[j]
-                        delta = current_pos - home_pos
-                        dist = np.linalg.norm(delta)
-                        print(f"Marker {rid} moved by Δx={delta[0]:.4f}, Δy={delta[1]:.4f}, Δz={delta[2]:.4f} (distance {dist:.4f}) from marker {marker_home_pos}'s initial position at frame {i+1}.")
-
+                    if rid == target_marker_id: # comment out if you want to look at ALL marker values
+                        current_rot = rots[j]
+                        delta = current_rot - home_pos
+                        print(f"Marker {rid} moved by Δx={delta[0]:.4f}, Δy={delta[1]:.4f}, Δz={delta[2]:.4f}, Δw={delta[3]:.4f} from marker {marker_home_pos}'s initial rotation at frame {i+1}.")
+            
             # Rest of your existing code ...
             colors = np.array([[1, 0, 0] if rid == 47 else [0, 0, 1] for rid in ids])
 
@@ -153,6 +154,6 @@ while True:
                     orientation_quivers.append(q)
 
             plt.draw()
-            plt.pause(0.5)
+            plt.pause(0.01)
     else:
-        plt.pause(0.1)
+        plt.pause(0.01)

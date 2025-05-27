@@ -130,6 +130,11 @@ for ts in timestamps[380:]: #TODO: truncating the start for full_dance.csv which
         if delta > thresholds['rotate']:
             detected = True
 
+    # if delta_z < num:
+    #     home = sfckl
+
+    # delta_z = toe_l[2] - curr_home[2]
+    
     if detected:
         print(f"Detected move: {move.upper()}\n")
         move_idx += 1
