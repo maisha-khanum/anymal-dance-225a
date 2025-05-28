@@ -239,7 +239,7 @@ for i, ts in enumerate(timestamps[380:]):  # Adjust slice for skipping idle fram
             print(f"✔ Detected move: {move.upper()} (Δ={delta:.4f})")
             if move == 'rotate' and new_sequence:
                 delta = rots[47][2] - curr_home_rot[2]
-                if abs(delta) > 0.6:
+                if abs(delta) > 0.54:
                     rotation_counter += 1
                     curr_home = marker_dict[marker_ids['toe_l']]
                     curr_home_rot = rots[47].copy()

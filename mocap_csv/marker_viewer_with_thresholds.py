@@ -80,9 +80,9 @@ def get_forward_vector_from_quat(q):
 
 # === Animation loop ===
 prev_positions = {}
-target_marker_id = 47 #change value based on target marker of interest
+target_marker_id = 3 #change value based on target marker of interest
 home_pos = None
-marker_home_pos = 47 # marker value for left toe (aka home position)
+marker_home_pos = 3 # marker value for left toe (aka home position)
 
 while True:
     if restart_animation:
@@ -136,7 +136,7 @@ while True:
                         print(f"Marker {rid} moved by Δx={delta[0]:.4f}, Δy={delta[1]:.4f}, Δz={delta[2]:.4f}, Δw={delta[3]:.4f} from marker {marker_home_pos}'s initial rotation at frame {i+1}.")
             
             # Rest of your existing code ...
-            colors = np.array([[1, 0, 0] if rid == 47 else [0, 0, 1] for rid in ids])
+            colors = np.array([[1, 0, 0] if rid == 3 else [0, 0, 1] for rid in ids])
 
             sc._offsets3d = (pos[:, 0], pos[:, 1], pos[:, 2])
             sc.set_color(colors)

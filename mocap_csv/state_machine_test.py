@@ -123,7 +123,7 @@ for i, ts in enumerate(timestamps[380:]):  # Adjust slice for skipping idle fram
                     detected = True
                     new_sequence = True
 
-                    r.publish('direction', move_idx)
+                    # r.publish('direction', move_idx)
         else:
             if move == 'left' and toe_l is not None:
                 delta = toe_l[0] - curr_home[0]
@@ -166,7 +166,7 @@ for i, ts in enumerate(timestamps[380:]):  # Adjust slice for skipping idle fram
                 if abs(delta) > thresholds['rotate']:
                     detected = True
                     new_sequence = True
-                    r.publish('direction', move_idx)
+                    # r.publish('direction', move_idx)
 
         if detected:
             print(f"✔ Detected move: {move.upper()} (Δ={delta:.4f})")
@@ -181,8 +181,10 @@ for i, ts in enumerate(timestamps[380:]):  # Adjust slice for skipping idle fram
                     move_idx = 0
                     detected = False
             else:
-                r.publish('direction', move_idx)
+                # r.publish('direction', move_idx)
                 move_idx += 1
                 detected = False
         else:
             print(f"[ ] No significant movement for {move}. Frame {ts:.4f} (Δ={delta:.4f})")
+        
+        
