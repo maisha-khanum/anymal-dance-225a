@@ -174,6 +174,8 @@ for i, ts in enumerate(timestamps[380:]):  # Adjust slice for skipping idle fram
                 if abs(delta) > thresholds['rotate']:
                     detected = True
                     new_sequence = True
+
+                    redis_anymal.publish(f"{move_idx + 1}")
         else:
             if move == 'left' and toe_l is not None:
                 delta = toe_l[0] - curr_home[0]
@@ -227,6 +229,8 @@ for i, ts in enumerate(timestamps[380:]):  # Adjust slice for skipping idle fram
                 if abs(delta) > thresholds['rotate']:
                     detected = True
                     new_sequence = True
+
+                    redis_anymal.publish(f"{move_idx + 1}")
 
         # if move == 'rotate' and new_sequence:
         #     delta = rots[47][2] - curr_home_rot[2]

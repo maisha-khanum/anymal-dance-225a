@@ -5,7 +5,7 @@ import numpy as np
 from scipy.spatial.transform import Rotation as R
 import redis
 
-r = redis.Redis(host='192.168.0.234', port=6379)
+redis_anymal = redis.Redis(host='192.168.0.234', port=6379)
 
 # === ARGUMENT PARSING ===
 if len(sys.argv) < 2:
@@ -47,8 +47,8 @@ def get_forward_vector_from_quat(q):
     r = R.from_quat(q)
     return r.apply([0, 0, 0.05])
 
-
 for i, ts in enumerate(timestamps[380:]):  # Adjust slice for skipping idle frames
+
     frame_data = data[data['timestamp'] == ts].sort_values(by='rigid_body_id')
     pos = frame_data[['pos_x', 'pos_y', 'pos_z']].to_numpy()
     rots = frame_data[['rot_x', 'rot_y', 'rot_z', 'rot_w']].to_numpy()
@@ -76,8 +76,6 @@ for i, ts in enumerate(timestamps[380:]):  # Adjust slice for skipping idle fram
         wrist_r = marker_dict.get(marker_ids['wrist_r'])
         chest = marker_dict.get(marker_ids['chest'])
     
-
-        # detected = False
         delta = 0
 
         if rotation_counter % 2 == 1:
@@ -123,7 +121,7 @@ for i, ts in enumerate(timestamps[380:]):  # Adjust slice for skipping idle fram
                     detected = True
                     new_sequence = True
 
-                    # r.publish('direction', move_idx)
+                    redis_anymal.publish(f"{move_idx + 1}")
         else:
             if move == 'left' and toe_l is not None:
                 delta = toe_l[0] - curr_home[0]
@@ -132,7 +130,9 @@ for i, ts in enumerate(timestamps[380:]):  # Adjust slice for skipping idle fram
 
             elif move == 'backward' and toe_r is not None:
                 delta = toe_r[1] - curr_home[1]
-                if abs(delta) > thresholds['backward']:
+                if abs(delta) > thresholds['backward'] and rotation_counter % 4 != 0:
+                    detected = True
+                elif abs(delta) > 0.4 and rotation_counter % 4 == 0:
                     detected = True
 
             elif move == 'hop' and chest is not None:
@@ -166,25 +166,37 @@ for i, ts in enumerate(timestamps[380:]):  # Adjust slice for skipping idle fram
                 if abs(delta) > thresholds['rotate']:
                     detected = True
                     new_sequence = True
-                    # r.publish('direction', move_idx)
+
+                    redis_anymal.publish(f"{move_idx + 1}")
+
 
         if detected:
             print(f"✔ Detected move: {move.upper()} (Δ={delta:.4f})")
             if move == 'rotate' and new_sequence:
                 delta = rots[47][2] - curr_home_rot[2]
-                if abs(delta) > 0.6:
+                if abs(delta) > 0.6 and (rotation_counter - 3) % 4 != 0: #think about this rotation counter thing
                     rotation_counter += 1
                     curr_home = marker_dict[marker_ids['toe_l']]
                     curr_home_rot = rots[47].copy()
                     print(f"Rotation detected: {rotation_counter} (Δ={delta:.4f})")
                     new_sequence = False
+
+                    move_idx = 0
+                    detected = False
+
+                elif abs(delta) > 0.515 and (rotation_counter - 3) % 4 == 0: #need 0.51 for full_dance.csv
+                    rotation_counter += 1
+                    curr_home = marker_dict[marker_ids['toe_l']]
+                    curr_home_rot = rots[47].copy()
+                    print(f"Rotation detected: {rotation_counter} (Δ={delta:.4f})")
+                    new_sequence = False
+
                     move_idx = 0
                     detected = False
             else:
-                # r.publish('direction', move_idx)
                 move_idx += 1
                 detected = False
+
+                redis_anymal.publish(f"{move_idx + 1}")
         else:
             print(f"[ ] No significant movement for {move}. Frame {ts:.4f} (Δ={delta:.4f})")
-        
-        
