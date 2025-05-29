@@ -15,21 +15,20 @@ def signal_handler(sig, frame):
     sys.exit(0)
 
 redis_client = redis.Redis(host='localhost', port=6379, decode_responses=True)
+redis_anymal = redis.Redis(host='192.168.0.234', port=6379)
 
 # === CONFIG ===
 skeleton_name = "Ariane"
 move_sequence = ['left', 'right', 'backward', 'hop', 'stomp_left', 'stomp_right', 'chacha', 'rotate']
 thresholds = {
-    'left': 0.05,
-    'right': 0.05,
-    'backward': 0.05,
-    'hop': -0.03,
-    'stomp_left': -0.03,
-    'stomp_right': -0.03,
-    'chacha': 0.05,
-    'rotate': 0.05
+    'left': 0.1,
+    'backward': 0.3,
+    'hop': 1.0,
+    'stomp_left': 0.5,
+    'stomp_right': 0.5,
+    'chacha': 0.9,
+    'rotate': 0.25  # add more values to threshold
 }
-
 marker_ids = {
     'toe_l': 47,
     'toe_r': 51,
@@ -39,7 +38,6 @@ marker_ids = {
     'wrist_r': 28,
     'chest': 3
 }
-
 
 # This is a callback function that gets connected to the NatNet client
 # and called once per mocap frame.
@@ -81,14 +79,6 @@ def receive_skeleton_frame(new_id, skeleton):
         # Set the position and orientation in Redis
         redis_client.set(position_key, position_str)
         redis_client.set(orientation_key, orientation_str)
-
-def get_marker_pos(marker_key):
-    val = redis_client.get(marker_key)
-    if val:
-        return list(map(float, val.strip('[]').split(',')))
-    else:
-        return None
-
 
 def add_lists(totals, totals_tmp):
     totals[0]+=totals_tmp[0]
@@ -201,7 +191,12 @@ def my_parse_args(arg_list, args_dict):
 
     return args_dict
 
-
+def get_marker_val(marker_key):
+    val = redis_client.get(marker_key)
+    if val:
+        return list(map(float, val.strip('[]').split(',')))
+    else:
+        return None
 
 if __name__ == "__main__":
     signal.signal(signal.SIGINT, signal_handler)
@@ -218,8 +213,6 @@ if __name__ == "__main__":
     streaming_client.set_client_address(optionsDict["clientAddress"])
     streaming_client.set_server_address(optionsDict["serverAddress"])
     streaming_client.set_use_multicast(optionsDict["use_multicast"])
-
-
 
     # Configure the streaming client to call our rigid body handler on the emulator to send data out.
     streaming_client.new_frame_listener = receive_new_frame 
@@ -263,99 +256,164 @@ if __name__ == "__main__":
 
 
     while is_looping:
-        curr_home = get_marker_pos(skeleton_name+"::47::pos") #toe_l marker position
-        move_idx = 0
-
-
-        while move_idx < len(move_sequence):
-            move = move_sequence[move_idx]
-            print(f"Looking for move: {move}")
-
-            time.sleep(2)  # 2-second pause between checks
-
-
-
-            # Retrieve all necessary marker positions
-            toe_l = get_marker_pos(skeleton_name+"::47::pos")
-            toe_r = get_marker_pos(skeleton_name+"::51::pos")
-            knee_l = get_marker_pos(skeleton_name+"::45::pos")
-            knee_r = get_marker_pos(skeleton_name+"::49::pos")
-            wrist_l = get_marker_pos(skeleton_name+"::9::pos")
-            wrist_r = get_marker_pos(skeleton_name+"::28::pos")
-            chest = get_marker_pos(skeleton_name+"::3::pos")
-
-            # Skip if markers are missing
-            if any(x is None for x in [toe_l, toe_r, knee_l, knee_r, wrist_l, wrist_r]):
-                print("Waiting for all markers...")
-                continue
-
+        if home_toe_pos is None:
+            home_toe_pos = get_marker_val(skeleton_name+"::47::pos") #toe_l marker position
+            home_toe_rot = get_marker_val(skeleton_name+"::47::ori") #toe_l orientation
+            move_idx = 0
+            rotation_counter = 1
             detected = False
+        
 
-            if move == 'left':
-                delta = curr_home[1] - toe_l[1] # y-axis
-                if delta > thresholds['left']:
+        move = move_sequence[move_idx]
+        print(f"Looking for move: {move}")
+
+        time.sleep(2)  # 2-second pause between checks
+
+        # Retrieve all necessary marker positions
+        toe_l_pos = get_marker_val(skeleton_name+"::47::pos")
+        toe_r_pos = get_marker_val(skeleton_name+"::51::pos")
+        knee_l_pos = get_marker_val(skeleton_name+"::45::pos")
+        knee_r_pos = get_marker_val(skeleton_name+"::49::pos")
+        wrist_l_pos = get_marker_val(skeleton_name+"::9::pos")
+        wrist_r_pos = get_marker_val(skeleton_name+"::28::pos")
+        chest_pos = get_marker_val(skeleton_name+"::3::pos")
+
+        toe_l_rot = get_marker_val(skeleton_name+"::47::ori")
+
+        # Skip if markers are missing
+        if any(x is None for x in [toe_l_pos, toe_r_pos, knee_l_pos, knee_r_pos, wrist_l_pos, wrist_r_pos]):
+            print("Waiting for all markers...")
+            continue
+
+        # detected = False
+        delta = 0
+
+        if rotation_counter % 2 == 1:
+            if move == 'left' and toe_l_pos is not None:
+                delta = toe_l_pos[1] - home_toe_pos[1]
+                if abs(delta) > thresholds['left']:
                     detected = True
 
-            elif move == 'backward':
-                delta = curr_home[0] - toe_l[0] # x-axis, positive is backward
-                if delta > thresholds['backward']:
+            elif move == 'backward' and toe_r_pos is not None:
+                delta = toe_r_pos[0] - home_toe_pos[0]
+                if abs(delta) > thresholds['backward']:
                     detected = True
 
-            elif move == 'hop':
-                # Check if both wrists are above the threshold
-                delta_l = curr_home[2] - knee_l[2] # z-axis
-                delta_r = curr_home[2] - knee_r[2] # z-axis
-                if delta_l > thresholds['hop'] and delta_r > thresholds['hop']:
+            elif move == 'hop' and chest_pos is not None:
+                delta = chest_pos[2] - home_toe_pos[2]
+                if abs(delta) < thresholds['hop']:
+                    detected = True
+                    hopInProgress = False
+                    hopComplete = False
+
+            elif move == 'stomp_right' and knee_r_pos is not None:
+                delta = knee_r_pos[2] - home_toe_pos[2]
+                if abs(delta) > 0.65:
+                    hopInProgress = True
+                if hopInProgress and abs(delta) < 0.43:
+                    hopComplete = True
+                if hopComplete and abs(delta) > thresholds['stomp_right']:
                     detected = True
 
-                # Check if chest is below the threshold
-                # delta_c = curr_home[2] - chest[2]
-                # if delta_c > thresholds['hop']:
-                #     detected = True
+            elif move == 'stomp_left' and knee_l_pos is not None:
+                delta = knee_l_pos[2] - home_toe_pos[2]
+                if abs(delta) > thresholds['stomp_left']:
+                        detected = True
 
-                # absolute threshold?
-                # if knee_l[2] > thresholds['hop'] and knee_r[2] < thresholds['hop']:
-                #     detected = True
-
-            elif move == 'stomp_left':
-                delta = curr_home[2] - knee_l[2] # z-axis
-                if -delta > thresholds['stomp_left']:
-                    detected = True
-                
-                # absolute threshold?
-                # if knee_l[2] > thresholds['stomp_left']:
-                #     detected = True
-
-            elif move == 'stomp_right':
-                delta = curr_home[2] - knee_r[2]
-                if -delta > thresholds['stomp_right']:
+            elif move == 'chacha' and wrist_l_pos is not None and wrist_r_pos is not None:
+                delta = wrist_l_pos[2] - home_toe_pos[2]
+                if abs(delta) > thresholds['chacha']:
                     detected = True
 
-                # absolute threshold?
-                # if knee_r[2] > thresholds['stomp_right']:
-                #     detected = True
+            elif move == 'rotate' and chest_pos is not None: # TODO
+                delta = toe_l_rot[2] - home_toe_rot[2]
+                if abs(delta) > thresholds['rotate']:
+                    detected = True
+                    new_sequence = True
 
-            elif move == 'chacha':
-                # Check if both wrists are above the threshold
-                delta_l = curr_home[2] - wrist_l[2]
-                delta_r = curr_home[2] - wrist_r[2]
-                if -delta_l > thresholds['chacha'] and -delta_r < thresholds['chacha']:
+                    redis_anymal.publish(f"{move_idx + 1}")
+
+        else:
+            if move == 'left' and toe_l_pos is not None:
+                delta = toe_l_pos[0] - home_toe_pos[0]
+                if abs(delta) > thresholds['left']:
                     detected = True
 
-                # absolute threshold?
-                # if wrist_l[2] > thresholds['chacha'] and wrist_r[2] > thresholds['chacha']:
-                #     detected = True
-
-            elif move == 'rotate':
-                delta = curr_home[0] - toe_l[0]
-                if -delta > thresholds['rotate']:
+            elif move == 'backward' and toe_r_pos is not None:
+                delta = toe_r_pos[1] - home_toe_pos[1]
+                if abs(delta) > thresholds['backward'] and rotation_counter % 4 != 0:
+                    detected = True
+                elif abs(delta) > 0.4 and rotation_counter % 4 == 0:
                     detected = True
 
-            if detected: # update the move
-                print(f"Detected move: {move.upper()}\n")
-                move_idx += 1
+            elif move == 'hop' and chest_pos is not None:
+                delta = chest_pos[2] - home_toe_pos[2]
+                if abs(delta) < thresholds['hop']:
+                    detected = True
+                    hopInProgress = False
+                    hopComplete = False
+
+            elif move == 'stomp_right' and knee_r_pos is not None:
+                delta = knee_r_pos[2] - home_toe_pos[2]
+                if abs(delta) > 0.65:
+                    hopInProgress = True
+                if hopInProgress and abs(delta) < 0.43:
+                    hopComplete = True
+                if hopComplete and abs(delta) > thresholds['stomp_right']:
+                    detected = True
+
+            elif move == 'stomp_left' and knee_l_pos is not None:
+                delta = knee_l_pos[2] - home_toe_pos[2]
+                if abs(delta) > thresholds['stomp_left']:
+                        detected = True
+
+            elif move == 'chacha' and wrist_l_pos is not None and wrist_r_pos is not None:
+                delta = wrist_l_pos[2] - home_toe_pos[2]
+                if abs(delta) > thresholds['chacha']:
+                    detected = True
+
+            elif move == 'rotate' and chest_pos is not None:
+                delta = toe_l_rot[2] - home_toe_rot[2]
+                print(f"Delta for rotation: {delta:.4f}")
+                if abs(delta) > thresholds['rotate']:
+                    detected = True
+                    new_sequence = True
+
+                    redis_anymal.publish(f"{move_idx + 1}")
+
+
+        if detected:
+            print(f"Current rotation: {rotation_counter}, Detected move: {move.upper()} (Δ={delta:.4f})")
+            if move == 'rotate' and new_sequence:
+                delta = toe_l_rot[2] - home_toe_rot[2]
+
+                if abs(delta) > 0.6 and (rotation_counter - 3) % 4 != 0: #think about this rotation counter thing
+                    rotation_counter += 1
+                    home_toe_pos = get_marker_val(skeleton_name+"::47::pos") #toe_l marker position
+                    home_toe_rot = get_marker_val(skeleton_name+"::47::ori") #toe_l orientation
+        
+                    new_sequence = False
+
+                    move_idx = 0
+                    detected = False
+                elif abs(delta) > 0.515 and (rotation_counter - 3) % 4 == 0: #need 0.51 for full_dance.csv
+                    rotation_counter += 1
+                    home_toe_pos = get_marker_val(skeleton_name+"::47::pos") #toe_l marker position
+                    home_toe_rot = get_marker_val(skeleton_name+"::47::ori") #toe_l orientation
+        
+                    new_sequence = False
+
+                    move_idx = 0
+                    detected = False
+
             else:
-                print(f"[ ] No significant movement for {move}.")
+                redis_anymal.publish(f"{move_idx + 1}")
+
+                move_idx += 1
+                detected = False
+        else:
+            print(f"[ ] No significant movement for {move}. Frame {ts:.4f} (Δ={delta:.4f})")
+
 
     streaming_client.shutdown()
     print("Exited cleanly.")
