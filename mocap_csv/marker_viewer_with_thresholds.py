@@ -82,7 +82,7 @@ def get_forward_vector_from_quat(q):
 prev_positions = {}
 target_marker_id = 3 #change value based on target marker of interest
 home_pos = None
-marker_home_pos = 3 # marker value for left toe (aka home position)
+marker_home_pos = 47 # marker value for left toe (aka home position)
 
 while True:
     if restart_animation:

@@ -27,7 +27,8 @@ thresholds = {
     'stomp_left': 0.5,
     'stomp_right': 0.5,
     'chacha': 0.9,
-    'rotate': 0.25  # add more values to threshold
+    # 'rotate': 0.25,  # add more values to threshold
+    'rotate': 0.15
 }
 marker_ids = {
     'toe_l': 47,
@@ -104,6 +105,7 @@ for i, ts in enumerate(timestamps[380:]):  # Adjust slice for skipping idle fram
     if marker_ids['toe_l'] in marker_dict and curr_home is None:
         curr_home = marker_dict[marker_ids['toe_l']]
         curr_home_rot = rots[47].copy()
+        curr_home_chest = rots[3].copy()
         print(f"Set home position: {curr_home}")
 
     # Motion Detection Logic
@@ -169,11 +171,16 @@ for i, ts in enumerate(timestamps[380:]):  # Adjust slice for skipping idle fram
                 if abs(delta) > thresholds['chacha']:
                     detected = True
 
-            elif move == 'rotate' and toe_l is not None:
-                delta = rots[47][2] - curr_home_rot[2]
+            elif move == 'rotate' and chest is not None:
+                delta = rots[3][3] - curr_home_chest[3]
                 if abs(delta) > thresholds['rotate']:
                     detected = True
                     new_sequence = True
+
+                # delta = rots[47][2] - curr_home_rot[2]
+                # if abs(delta) > thresholds['rotate']:
+                #     detected = True
+                #     new_sequence = True
         else:
             if move == 'left' and toe_l is not None:
                 delta = toe_l[0] - curr_home[0]
@@ -220,11 +227,17 @@ for i, ts in enumerate(timestamps[380:]):  # Adjust slice for skipping idle fram
                 if abs(delta) > thresholds['chacha']:
                     detected = True
 
-            elif move == 'rotate' and toe_l is not None:
-                delta = rots[47][2] - curr_home_rot[2]
+            elif move == 'rotate' and chest is not None:
+                delta = rots[3][3] - curr_home_chest[3]
+                print(f"Delta for rotation: {delta:.4f}")
                 if abs(delta) > thresholds['rotate']:
                     detected = True
                     new_sequence = True
+        
+                # delta = rots[47][2] - curr_home_rot[2]
+                # if abs(delta) > thresholds['rotate']:
+                #     detected = True
+                #     new_sequence = True
 
         # if move == 'rotate' and new_sequence:
         #     delta = rots[47][2] - curr_home_rot[2]
@@ -238,11 +251,13 @@ for i, ts in enumerate(timestamps[380:]):  # Adjust slice for skipping idle fram
         if detected:
             print(f"✔ Detected move: {move.upper()} (Δ={delta:.4f})")
             if move == 'rotate' and new_sequence:
-                delta = rots[47][2] - curr_home_rot[2]
-                if abs(delta) > 0.54:
+                delta = rots[3][3] - curr_home_chest[3]
+
+                if abs(delta) > 0.3:
                     rotation_counter += 1
                     curr_home = marker_dict[marker_ids['toe_l']]
                     curr_home_rot = rots[47].copy()
+                    curr_home_chest = rots[3].copy()
                     print(f"Rotation detected: {rotation_counter} (Δ={delta:.4f})")
                     new_sequence = False
 
