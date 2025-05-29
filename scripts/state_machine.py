@@ -331,7 +331,7 @@ if __name__ == "__main__":
                     detected = True
                     new_sequence = True
 
-                    redis_anymal.publish(f"{move_idx + 1}")
+                    redis_anymal.publish('direction', move_idx + 1)
 
         else:
             if move == 'left' and toe_l_pos is not None:
@@ -379,7 +379,7 @@ if __name__ == "__main__":
                     detected = True
                     new_sequence = True
 
-                    redis_anymal.publish(f"{move_idx + 1}")
+                    redis_anymal.publish('direction', move_idx + 1)
 
 
         if detected:
@@ -407,7 +407,7 @@ if __name__ == "__main__":
                     detected = False
 
             else:
-                redis_anymal.publish(f"{move_idx + 1}")
+                redis_anymal.publish('direction', move_idx + 1)
 
                 move_idx += 1
                 detected = False
