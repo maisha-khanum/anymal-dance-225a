@@ -262,6 +262,9 @@ if __name__ == "__main__":
             move_idx = 0
             rotation_counter = 1
             detected = False
+            new_sequence = False
+            
+            
         
 
         move = move_sequence[move_idx]
@@ -328,9 +331,9 @@ if __name__ == "__main__":
             elif move == 'rotate' and chest_pos is not None: # TODO
                 delta = toe_l_rot[2] - home_toe_rot[2]
                 if abs(delta) > thresholds['rotate']:
-                    if not detected:
+                    detected = True
+                    if not new_sequence:
                         redis_anymal.publish('direction', move_idx + 1)
-                        detected = True
                         new_sequence = True
     
         else:
@@ -376,9 +379,9 @@ if __name__ == "__main__":
                 delta = toe_l_rot[2] - home_toe_rot[2]
                 print(f"Delta for rotation: {delta:.4f}")
                 if abs(delta) > thresholds['rotate']:
-                    if not detected:
+                    detected = True
+                    if not new_sequence:
                         redis_anymal.publish('direction', move_idx + 1)
-                        detected = True
                         new_sequence = True
 
         if detected:
@@ -405,7 +408,7 @@ if __name__ == "__main__":
                     move_idx = 0
                     detected = False
 
-            elif move != 'rotate':
+            else:
                 redis_anymal.publish('direction', move_idx + 1)
 
                 move_idx += 1
