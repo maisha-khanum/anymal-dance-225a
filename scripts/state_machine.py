@@ -405,7 +405,7 @@ if __name__ == "__main__":
                     move_idx = 0
                     detected = False
 
-            else:
+            elif move != 'rotate':
                 redis_anymal.publish('direction', move_idx + 1)
 
                 move_idx += 1
